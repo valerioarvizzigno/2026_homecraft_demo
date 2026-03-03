@@ -29,7 +29,7 @@ with st.sidebar:
     manual_topP = st.slider(
         "TopP", 0.00, 1.00, 0.80
     )
-    st.text ("Running with: Gemini 2.0 Flash")
+    st.text ("Running with: Gemini 2.5 Pro GA")
 
 with st.container():
     c1, c2, c3 = st.columns([1,1,1])
@@ -82,8 +82,8 @@ generation_config = GenerationConfig(
 
 vertexai.init(project=projid, location="us-central1")
 
-model = GenerativeModel("gemini-2.0-flash-exp")
-visionModel = GenerativeModel("gemini-2.0-flash-exp")
+model = GenerativeModel("gemini-2.5-pro")
+visionModel = GenerativeModel("gemini-2.5-pro")
 #Gemini can hold chat history in the chat variable. Pass this variable every time along with the prompt one. 
 #chat = model.start_chat()
 
