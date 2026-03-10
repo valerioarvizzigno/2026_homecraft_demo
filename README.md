@@ -1,6 +1,6 @@
 # leroy-merlin-gai-demo
 
-*** UPDATED TO USE GEMINI 2.0 FLASH ***
+*** UPDATED TO USE GEMINI 2.5 ***
 
 ### Text-only simple questions
 
