@@ -8,13 +8,13 @@ from vertexai.generative_models import GenerativeModel, ChatSession, GenerationC
 
 # This code shows VertexAI GenAI integration with Elastic Vector Search features
 # to connect publicly trained LLMs with private data
-# Gemini Pro model is used
+# Gemini model is used
 
 # Code is presented for demo purposes but should not be used in production
 # You may encounter exceptions which are not handled in the code
 
-st.set_page_config(page_title="Home (French version)", layout="wide") 
-#image = Image.open('homecraft_logo.jpg')
+st.set_page_config(page_title="English version", layout="wide") 
+
 with st.sidebar:
     st.text ("Gemini configuration")
     manual_temperature = st.slider(
@@ -53,17 +53,15 @@ with left_column:
 #image load component
 with right_column:
     uploaded_file = st.file_uploader("Add an image to your prompt (.png or .jpg)", ['png','jpg'])
-    
+
 # Required Environment Variables
 # gcp_project_id - Google Cloud project ID
 # cloud_id - Elastic Cloud Deployment ID
-# cloud_user - Elasticsearch Cluster User
-# cloud_pass - Elasticsearch User Password
+# elastic_apikey - Elastic Search projects API Key
 
-projid = os.environ['gcp_project_id']
-cid = os.environ['cloud_id']
-cp = os.environ['cloud_pass']
-cu = os.environ['cloud_user']
+gcp_projid = os.environ['gcp_project_id']
+elastic_projid = os.environ['elastic_project_id']
+elastic_apikey = os.environ['elastic_apikey']
 
 generation_config = GenerationConfig(
     temperature=manual_temperature, # 0 - 2. The higher the temp the more creative and less on point answers become
@@ -80,7 +78,7 @@ generation_config = GenerationConfig(
 #                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
 #            }
 
-vertexai.init(project=projid, location="us-central1")
+vertexai.init(project=gcp_projid, location="us-central1")
 
 model = GenerativeModel("gemini-2.5-pro")
 visionModel = GenerativeModel("gemini-2.5-pro")
@@ -88,78 +86,34 @@ visionModel = GenerativeModel("gemini-2.5-pro")
 #chat = model.start_chat()
 
 # Connect to Elastic Cloud cluster
-def es_connect(cid, user, passwd):
-    es = Elasticsearch(cloud_id=cid, http_auth=(user, passwd))
+def es_connect(elastic_projid, elastic_apikey):
+    es = Elasticsearch(hosts=[elastic_projid], api_key=elastic_apikey)
     return es
 
 # Search ElasticSearch index and return details on relevant products
 def search_products(query_text):
+    
 
-    # Elasticsearch query (BM25) and kNN configuration for hybrid search
-    '''
-    query = {
-        "bool": {
-            "must": [{
-                "match": {
-                    "product-name": {
-                        "query": query_text,
-                        "boost": 0.2
-                    }
+    semantic_search = {
+            "query": {
+                "semantic": {
+                    "field": "name",
+                    "query": query_text
                 }
-            }],
-            "filter": [{
-                "exists": {
-                    "field": "details_embedding"
-                }
-            }]
-        }
-    }
-    '''
-
-    knn = [
-    {
-        "field": "details_embedding",
-        "k": 10,
-        "num_candidates": 50,
-        "query_vector_builder": {
-            "text_embedding": {
-                "model_id": ".multilingual-e5-small_linux-x86_64",
-                "model_text": query_text
             }
-        },
-        "boost": 0.2
-    },
-    {
-        "field": "title_embedding",
-        "k": 10,
-        "num_candidates": 50,
-        "query_vector_builder": {
-            "text_embedding": {
-                "model_id": ".multilingual-e5-small_linux-x86_64",
-                "model_text": query_text
-            }
-        },
-        "boost": 0.8
     }
-    ]
 
-    fields = ["product-link", "product-name", "product-characteristics", "product-price", "product-image-src", "product-link-href", "category-link"]
-    index = 'leroy-merlin-fr-catalog-vector'
+    fields = ["name", "actual_price", "discount-price", "image", "link", "main_category", "no_of_ratings", "ratings", "sub_category"]
+    index = 'marketplace-products-embeddings'
     resp = es.search(index=index,
-                     #query=query,
-                     knn=knn,
+                     body=semantic_search,
                      fields=fields,
                      size=10,
                      source=False)
 
-    doc_list = resp['hits']['hits']
     body = resp['hits']['hits']
-    url = ''
-    for doc in doc_list:
-        #body = body + doc['fields']['description'][0]
-        url = url + "\n\n" +  doc['fields']['product-link-href'][0]
 
-    return body, url
+    return body
 
 def truncate_text(text, max_tokens):
     tokens = text.split()
@@ -190,21 +144,22 @@ def generateVisionResponse(prompt, image):
     )
     return response.text
 
+
 # Generate and display response on form submission
 negResponse = "I'm unable to answer the question based on the information I have from Leroy Merlin dataset."
 if submit_button:
     queryForElastic = ''
     answerVision = ''
     if uploaded_file is not None:
-        visionQuery = 'What is the product in the picture? Answer in french and describe it with max 20 words'
+        visionQuery = 'What is the product in the picture? Describe it with max 20 words'
         answerVision = generateVisionResponse(visionQuery,uploaded_file)
         #To Elastic, for semantic search, we send both the question and the first answer from the vision model
         queryForElastic = answerVision 
         st.write(f"**Vision assistant answer:**  \n\n{answerVision.strip()}")
     
-    es = es_connect(cid, cu, cp)
+    es = es_connect(elastic_projid, elastic_apikey)
     #topicCheck = generateResponse(f"What's the product the user is talking about in the question? Answer in french. Question: {user_query}")
-    resp_products, url_products = search_products(user_query if queryForElastic == '' else queryForElastic)
+    resp_products = search_products(user_query if queryForElastic == '' else queryForElastic)
     #resp_docs, url_docs = search_docs(user_query if queryForElastic == '' else queryForElastic)
     #resp_order_items = search_orders(1) # 1 is the hardcoded userid, to simplify this scenario. You should take user_id by user session
     #prompt = f"You are an e-commerce AI assistant. Answer this question: {query} using this context: \n{resp_products} \n {resp_docs} \n {resp_order_items}."
@@ -213,8 +168,7 @@ if submit_button:
     #prompt = f"You are an e-commerce customer AI assistant. Answer this question: {query}.\n with your own knowledge and using the information provided in the context. Context: JSON product catalog: {resp_products} \n, these docs: \n {resp_docs} \n and this user order history: \n {resp_order_items}"
     #answer = vertexAI(chat, prompt)
     #prompt = [f"You are an e-commerce AI assistant.", f"You answer question around product catalog, general company information and user past orders", f"You answer questions in french language", f"Question: {query};", f"Context: Picture content = {answerVision}; Product catalog = {resp_products};" ]
-    #prompt = [f"You are an e-commerce AI assistant. You answer question around product catalog, general company information and user past orders. You answer questions in french language and using this context: Picture content = {answerVision}, Product catalog = {resp_products}." f"Question: {query}."]
-    prompt = [f"Vous êtes un assistant IA e-commerce. Vous répondez aux questions concernant le catalogue de produits, les informations générales sur l'entreprise et les commandes passées des utilisateurs. Vous répondez aux questions en français et en utilisant ce contexte : Contenu de l'image = {answerVision}, Catalogue de produits = {resp_products}." f"Demande: {user_query}"]
+    prompt = [f"You are an e-commerce AI assistant. You answer question around product catalog. You answer questions in english, converting prices in dollars and using this context: Picture content = {answerVision}, Product catalog = {resp_products}." f"Question: {user_query}."]
     answer = generateResponse(prompt)
 
     if answer.strip() == '':
