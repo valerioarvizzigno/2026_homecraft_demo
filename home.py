@@ -144,7 +144,6 @@ def generateVisionResponse(prompt, image):
     )
     return response.text
 
-
 # Generate and display response on form submission
 negResponse = "I'm unable to answer the question based on the information I have from Leroy Merlin dataset."
 if submit_button:
