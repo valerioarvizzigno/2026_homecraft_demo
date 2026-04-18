@@ -4,7 +4,7 @@
 
 ### Deploy locally
 
-<<<<<<< HEAD
+
 Install requirements:
     
 ```
@@ -29,7 +29,7 @@ streamlit run home.py
     ```
     streamlit run home.py
     ```
->>>>>>> 40f1f27 (preparaing for OTel integration)
+    
 ### Deploy via docker in your machine
 
 ```
