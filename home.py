@@ -103,7 +103,7 @@ def search_products(query_text):
             }
     }
 
-    fields = ["name", "actual_price", "discount-price", "image", "link", "main_category", "no_of_ratings", "ratings", "sub_category"]
+    fields = ["name", "actual_price", "discount_price", "image", "link", "main_category", "no_of_ratings", "ratings", "sub_category"]
     index = 'marketplace-products-embeddings'
     resp = es.search(index=index,
                      body=semantic_search,
